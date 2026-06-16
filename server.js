@@ -10,22 +10,19 @@ const PORT = process.env.PORT || 3000;
 const ytDlpPath = path.join(__dirname, 'yt-dlp');
 let ytDlpWrap;
 
-// Función para descargar yt-dlp y darle permisos de ejecución obligatorios
+// Función para descargar yt-dlp y darle permisos de ejecución
 async function inicializarYtDlp() {
     if (!fs.existsSync(ytDlpPath)) {
         console.log('Descargando versión oficial de yt-dlp desde GitHub...');
         try {
             await YTDlpWrap.downloadFromGithub(ytDlpPath, 'yt-dlp/yt-dlp');
             console.log('yt-dlp oficial descargado con éxito.');
-            
-            // LÍNEA CLAVE: Le otorgamos permisos de ejecución (rwxr-xr-x) para que Render no lo bloquee
             fs.chmodSync(ytDlpPath, '755');
             console.log('Permisos de ejecución otorgados a yt-dlp.');
         } catch (err) {
             console.error('Error descargando yt-dlp:', err);
         }
     } else {
-        // Por si acaso ya existe pero no tiene permisos, se los aseguramos
         try {
             fs.chmodSync(ytDlpPath, '755');
         } catch (e) {}
@@ -81,6 +78,7 @@ app.post('/convertir', async (req, res) => {
         const outputFilename = `${safeTitle}.mp3`;
         const outputPath = path.join(__dirname, outputFilename);
 
+        // CORRECCIÓN: Sintaxis correcta de argumentos para yt-dlp con ffmpeg integrado
         await ytDlpWrap.execPromise([
             url,
             '-x',
