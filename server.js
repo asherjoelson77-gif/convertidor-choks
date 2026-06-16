@@ -1,29 +1,29 @@
 const express = require('express');
 const YTDlpWrap = require('yt-dlp-wrap').default;
+const ffmpegStatic = require('ffmpeg-static');
 const path = require('path');
 const fs = require('fs');
 
 const app = express();
-const PORT = 3000;
-const ytDlpWrap = new YTDlpWrap();
+const PORT = process.env.PORT || 3000;
 
-// Almacén temporal para las descargas recientes en memoria
+// Configurar la ruta del binario local de yt-dlp
+const ytDlpPath = path.join(__dirname, 'yt-dlp');
+const ytDlpWrap = new YTDlpWrap(fs.existsSync(ytDlpPath) ? ytDlpPath : undefined);
+
 let descargasRecientes = [];
 
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Servir la interfaz web
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Obtener el historial de descargas recientes
 app.get('/recientes', (req, res) => {
     res.json(descargasRecientes);
 });
 
-// Ruta para analizar el video y obtener la vista previa
 app.post('/analizar', async (req, res) => {
     const { url } = req.body;
     if (!url) {
@@ -32,8 +32,6 @@ app.post('/analizar', async (req, res) => {
 
     try {
         const videoInfo = await ytDlpWrap.getVideoInfo(url);
-        
-        // Extraer datos clave para la vista previa
         res.json({
             title: videoInfo.title,
             duration: videoInfo.duration_string || 'Desconocida',
@@ -47,7 +45,6 @@ app.post('/analizar', async (req, res) => {
     }
 });
 
-// Ruta definitiva para procesar la conversión y descarga
 app.post('/convertir', async (req, res) => {
     const { url } = req.body;
 
@@ -57,16 +54,17 @@ app.post('/convertir', async (req, res) => {
         const outputFilename = `${safeTitle}.mp3`;
         const outputPath = path.join(__dirname, outputFilename);
 
+        // Ejecutar conversión usando el ffmpeg integrado
         await ytDlpWrap.execPromise([
             url,
             '-x',
             '--audio-format', 'mp3',
             '--audio-quality', '0',
+            '--ffmpeg-location', ffmpegStatic,
             '-o', outputPath
         ]);
 
         if (fs.existsSync(outputPath)) {
-            // Añadir al inicio de la lista de recientes
             const nuevaDescarga = {
                 id: Date.now(),
                 title: videoInfo.title,
@@ -75,7 +73,7 @@ app.post('/convertir', async (req, res) => {
             };
             
             descargasRecientes.unshift(nuevaDescarga);
-            if (descargasRecientes.length > 5) descargasRecientes.pop(); // Limitar a las últimas 5
+            if (descargasRecientes.length > 5) descargasRecientes.pop();
 
             res.download(outputPath, outputFilename, (err) => {
                 if (err) console.error('Error al enviar archivo:', err);
@@ -94,6 +92,6 @@ app.post('/convertir', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
 

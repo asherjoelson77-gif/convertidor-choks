@@ -1,17 +1,20 @@
 {
   "name": "convertidor-choks",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Convertidor de videos de YouTube a MP3 con nombres originales",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "prestart": "npx yt-dlp-wrap --download ./yt-dlp",
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "express": "^5.2.1",
+    "express": "^4.19.2",
+    "ffmpeg-static": "^5.2.0",
     "yt-dlp-wrap": "^2.3.12"
   }
 }
+
