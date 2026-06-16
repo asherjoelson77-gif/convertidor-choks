@@ -1,6 +1,7 @@
 const express = require('express');
 const YTDlpWrap = require('yt-dlp-wrap').default;
 const ffmpegStatic = require('ffmpeg-static');
+const { execFile } = require('child_process'); // Usaremos el ejecutable directo de Node
 const path = require('path');
 const fs = require('fs');
 
@@ -30,7 +31,7 @@ async function inicializarYtDlp() {
     ytDlpWrap = new YTDlpWrap(ytDlpPath);
 }
 
-// Inicializar el ejecutable antes de arrancar por completo
+// Inicializar antes de arrancar
 inicializarYtDlp();
 
 let descargasRecientes = [];
@@ -48,9 +49,7 @@ app.get('/recientes', (req, res) => {
 
 app.post('/analizar', async (req, res) => {
     const { url } = req.body;
-    if (!url) {
-        return res.status(400).json({ error: 'Por favor, proporciona una URL válida.' });
-    }
+    if (!url) return res.status(400).json({ error: 'Por favor, proporciona una URL válida.' });
 
     try {
         if (!ytDlpWrap) await inicializarYtDlp();
@@ -64,7 +63,7 @@ app.post('/analizar', async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'No se pudo obtener información del video. Verifica el enlace.' });
+        res.status(500).json({ error: 'No se pudo obtener información del video.' });
     }
 });
 
@@ -78,44 +77,52 @@ app.post('/convertir', async (req, res) => {
         const outputFilename = `${safeTitle}.mp3`;
         const outputPath = path.join(__dirname, outputFilename);
 
-        // SOLUCIÓN DEFINITIVA DE SINTAXIS: Usamos la opción '--ffmpeg-location' separada de su valor en dos índices distintos del array para evitar fallos de lectura en Linux
-        await ytDlpWrap.execPromise([
+        // SOLUCIÓN COMPLETA: Ejecución directa en el sistema operativo sin intermediarios que alteren las flags
+        const args = [
             url,
-            '--extract-audio',
+            '-x',
             '--audio-format', 'mp3',
             '--audio-quality', '0',
             '--ffmpeg-location', ffmpegStatic,
             '-o', outputPath
-        ]);
+        ];
 
-        if (fs.existsSync(outputPath)) {
-            const nuevaDescarga = {
-                id: Date.now(),
-                title: videoInfo.title,
-                uploader: videoInfo.uploader || 'Canal Desconocido',
-                thumbnail: videoInfo.thumbnail || 'https://via.placeholder.com/120?text=MP3'
-            };
-            
-            descargasRecientes.unshift(nuevaDescarga);
-            if (descargasRecientes.length > 5) descargasRecientes.pop();
+        execFile(ytDlpPath, args, (error, stdout, stderr) => {
+            if (error) {
+                console.error('Error en execFile:', error);
+                console.error('Stderr:', stderr);
+                return res.status(500).json({ error: 'Error durante la conversión de audio.' });
+            }
 
-            res.download(outputPath, outputFilename, (err) => {
-                if (err) console.error('Error al enviar archivo:', err);
-                try {
-                    fs.unlinkSync(outputPath);
-                } catch (e) {}
-            });
-        } else {
-            res.status(500).json({ error: 'No se pudo generar el archivo MP3.' });
-        }
+            if (fs.existsSync(outputPath)) {
+                const nuevaDescarga = {
+                    id: Date.now(),
+                    title: videoInfo.title,
+                    uploader: videoInfo.uploader || 'Canal Desconocido',
+                    thumbnail: videoInfo.thumbnail || 'https://via.placeholder.com/120?text=MP3'
+                };
+                
+                descargasRecientes.unshift(nuevaDescarga);
+                if (descargasRecientes.length > 5) descargasRecientes.pop();
+
+                res.download(outputPath, outputFilename, (err) => {
+                    if (err) console.error('Error al enviar archivo:', err);
+                    try {
+                        fs.unlinkSync(outputPath);
+                    } catch (e) {}
+                });
+            } else {
+                res.status(500).json({ error: 'No se pudo encontrar el archivo MP3 generado.' });
+            }
+        });
 
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Error durante la conversión.' });
+        res.status(500).json({ error: 'Error interno en el proceso.' });
     }
 });
 
 app.listen(PORT, () => {
-    console.log('Servidor listo y escuchando puertos multimedia.');
+    console.log('Servidor listo y escuchando en Render.');
 });
 
