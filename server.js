@@ -1,7 +1,7 @@
 const express = require('express');
 const YTDlpWrap = require('yt-dlp-wrap').default;
 const ffmpegStatic = require('ffmpeg-static');
-const { execFile } = require('child_process'); // Usaremos el ejecutable directo de Node
+const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -10,6 +10,10 @@ const PORT = process.env.PORT || 3000;
 
 const ytDlpPath = path.join(__dirname, 'yt-dlp');
 let ytDlpWrap;
+
+// Inyectar la ruta del binario de FFmpeg directamente en el PATH del entorno de Render
+const ffmpegDir = path.dirname(ffmpegStatic);
+process.env.PATH = `${ffmpegDir}${path.delimiter}${process.env.PATH}`;
 
 // Función para descargar yt-dlp y darle permisos de ejecución
 async function inicializarYtDlp() {
@@ -31,7 +35,7 @@ async function inicializarYtDlp() {
     ytDlpWrap = new YTDlpWrap(ytDlpPath);
 }
 
-// Inicializar antes de arrancar
+// Inicializar antes de arrancar por completo
 inicializarYtDlp();
 
 let descargasRecientes = [];
@@ -77,13 +81,12 @@ app.post('/convertir', async (req, res) => {
         const outputFilename = `${safeTitle}.mp3`;
         const outputPath = path.join(__dirname, outputFilename);
 
-        // SOLUCIÓN COMPLETA: Ejecución directa en el sistema operativo sin intermediarios que alteren las flags
+        // Al estar FFmpeg inyectado en el PATH del sistema, ya NO usamos la flag '--ffmpeg-location'
         const args = [
             url,
             '-x',
             '--audio-format', 'mp3',
             '--audio-quality', '0',
-            '--ffmpeg-location', ffmpegStatic,
             '-o', outputPath
         ];
 
