@@ -10,17 +10,25 @@ const PORT = process.env.PORT || 3000;
 const ytDlpPath = path.join(__dirname, 'yt-dlp');
 let ytDlpWrap;
 
-// Función corregida con los argumentos exactos requeridos por la librería
+// Función para descargar yt-dlp y darle permisos de ejecución obligatorios
 async function inicializarYtDlp() {
     if (!fs.existsSync(ytDlpPath)) {
         console.log('Descargando versión oficial de yt-dlp desde GitHub...');
         try {
-            // Se pasa la ruta de destino y la procedencia del repositorio oficial de yt-dlp
             await YTDlpWrap.downloadFromGithub(ytDlpPath, 'yt-dlp/yt-dlp');
             console.log('yt-dlp oficial descargado con éxito.');
+            
+            // LÍNEA CLAVE: Le otorgamos permisos de ejecución (rwxr-xr-x) para que Render no lo bloquee
+            fs.chmodSync(ytDlpPath, '755');
+            console.log('Permisos de ejecución otorgados a yt-dlp.');
         } catch (err) {
             console.error('Error descargando yt-dlp:', err);
         }
+    } else {
+        // Por si acaso ya existe pero no tiene permisos, se los aseguramos
+        try {
+            fs.chmodSync(ytDlpPath, '755');
+        } catch (e) {}
     }
     ytDlpWrap = new YTDlpWrap(ytDlpPath);
 }
