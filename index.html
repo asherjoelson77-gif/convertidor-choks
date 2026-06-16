@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convertidor Choks Pro</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-color: #3b82f6;
+            --accent-hover: #2563eb;
+            --success-color: #10b981;
+            --success-hover: #059669;
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            padding: 30px 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 480px;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            background: linear-gradient(to right, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            margin-bottom: 25px;
+            font-size: 0.9rem;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 14px 18px;
+            border-radius: 12px;
+            border: 2px solid #334155;
+            background-color: #0f172a;
+            color: var(--text-color);
+            font-size: 0.95rem;
+            outline: none;
+            margin-bottom: 15px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent-color);
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: white;
+        }
+
+        .btn-blue { background-color: var(--accent-color); }
+        .btn-blue:hover { background-color: var(--accent-hover); }
+        
+        .btn-green { background-color: var(--success-color); }
+        .btn-green:hover { background-color: var(--success-hover); }
+
+        /* Estilos de la Tarjeta de Vista Previa */
+        .preview-card {
+            background-color: #0f172a;
+            border-radius: 14px;
+            padding: 15px;
+            margin-top: 20px;
+            display: none;
+            text-align: left;
+            border: 1px solid #334155;
+        }
+
+        .preview-card img {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            object-fit: cover;
+            aspect-ratio: 16/9;
+        }
+
+        .preview-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        .preview-meta {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 15px;
+        }
+
+        .status {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .loader {
+            display: none;
+            margin: 15px auto 0;
+            border: 3px solid #334155;
+            border-top: 3px solid var(--accent-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Estilos de la sección Recientes */
+        .recientes-container {
+            width: 100%;
+            max-width: 480px;
+            background-color: var(--card-bg);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .recientes-title {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #f1f5f9;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 8px;
+        }
+
+        .reciente-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #1e293b;
+        }
+
+        .reciente-item:last-child { border-bottom: none; }
+
+        .reciente-img {
+            width: 50px;
+            height: 50px;
+            border-radius: 6px;
+            object-fit: cover;
+        }
+
+        .reciente-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .reciente-name {
+            font-size: 0.9rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .reciente-author {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Convertidor Choks</h1>
+        <div class="subtitle">Busca, previsualiza y convierte audio al instante.</div>
+        
+        <input type="text" id="videoUrl" placeholder="Pega el enlace de YouTube aquí...">
+        <button id="btnBuscar" class="btn-blue" onclick="buscarVideo()">Buscar Video</button>
+        
+        <div class="loader" id="loader"></div>
+        <div class="status" id="statusMessage"></div>
+
+        <div class="preview-card" id="previewCard">
+            <img id="prevImg" src="" alt="Miniatura">
+            <div class="preview-title" id="prevTitle">Título del Video</div>
+            <div class="preview-meta" id="prevMeta">Canal • Duración</div>
+            <button id="btnDescargar" class="btn-green" onclick="ejecutarConversion()">Convertir y Descargar MP3</button>
+        </div>
+    </div>
+
+    <div class="recientes-container">
+        <div class="recientes-title">Descargas recientes</div>
+        <div id="listaRecientes">
+            <div style="color: var(--text-muted); font-size: 0.85rem; padding: 10px 0;">No hay descargas en esta sesión.</div>
+        </div>
+    </div>
+
+    <script>
+        let urlGlobal = '';
+
+        // Paso 1: Analizar el enlace de YouTube y mostrar la vista previa
+        async function buscarVideo() {
+            const urlInput = document.getElementById('videoUrl').value.trim();
+            const btnBuscar = document.getElementById('btnBuscar');
+            const loader = document.getElementById('loader');
+            const status = document.getElementById('statusMessage');
+            const previewCard = document.getElementById('previewCard');
+
+            if (!urlInput) {
+                mostrarStatus('Por favor, ingresa un enlace válido.', '#ef4444');
+                return;
+            }
+
+            btnBuscar.disabled = true;
+            loader.style.display = 'block';
+            status.style.display = 'none';
+            previewCard.style.display = 'none';
+
+            try {
+                const response = await fetch('/analizar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: urlInput })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    urlGlobal = data.url; // Guardar URL para el siguiente paso
+                    document.getElementById('prevImg').src = data.thumbnail;
+                    document.getElementById('prevTitle').innerText = data.title;
+                    document.getElementById('prevMeta').innerText = `${data.uploader} • Duración: ${data.duration}`;
+                    
+                    loader.style.display = 'none';
+                    previewCard.style.display = 'block';
+                } else {
+                    mostrarStatus(data.error, '#ef4444');
+                    loader.style.display = 'none';
+                }
+            } catch (error) {
+                mostrarStatus('Error al conectar con el servidor.', '#ef4444');
+                loader.style.display = 'none';
+            } finally {
+                btnBuscar.disabled = false;
+            }
+        }
+
+        // Paso 2: Convertir a MP3 y forzar la descarga del archivo generado
+        async function ejecutarConversion() {
+            const btnDescargar = document.getElementById('btnDescargar');
+            const status = document.getElementById('statusMessage');
+            const loader = document.getElementById('loader');
+
+            btnDescargar.disabled = true;
+            btnDescargar.innerText = 'Procesando Audio...';
+            loader.style.display = 'block';
+
+            try {
+                const response = await fetch('/convertir', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: urlGlobal })
+                });
+
+                if (response.ok) {
+                    const disposition = response.headers.get('content-disposition');
+                    let filename = 'audio.mp3';
+                    if (disposition && disposition.indexOf('filename=') !== -1) {
+                        filename = disposition.split('filename=')[1].replaceAll('"', '');
+                    }
+
+                    const blob = await response.blob();
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+
+                    mostrarStatus('¡Descarga completada con éxito!', '#10b981');
+                    document.getElementById('videoUrl').value = '';
+                    document.getElementById('previewCard').style.display = 'none';
+                    actualizarRecientes(); // Refrescar historial inferior
+                } else {
+                    mostrarStatus('Error al convertir el video.', '#ef4444');
+                }
+            } catch (error) {
+                mostrarStatus('Error en la descarga.', '#ef4444');
+            } finally {
+                btnDescargar.disabled = false;
+                btnDescargar.innerText = 'Convertir y Descargar MP3';
+                loader.style.display = 'none';
+            }
+        }
+
+        function mostrarStatus(msg, color) {
+            const status = document.getElementById('statusMessage');
+            status.style.color = color;
+            status.innerText = msg;
+            status.style.display = 'block';
+        }
+
+        // Cargar y renderizar la lista de descargas recientes
+        async function actualizarRecientes() {
+            try {
+                const response = await fetch('/recientes');
+                const datos = await response.json();
+                const lista = document.getElementById('listaRecientes');
+
+                if (datos.length === 0) {
+                    lista.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem; padding: 10px 0;">No hay descargas en esta sesión.</div>`;
+                    return;
+                }
+
+                lista.innerHTML = datos.map(item => `
+                    <div class="reciente-item">
+                        <img class="reciente-img" src="${item.thumbnail}" alt="thumb">
+                        <div class="reciente-info">
+                            <div class="reciente-name">${item.title}</div>
+                            <div class="reciente-author">${item.uploader}</div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error("Error cargando el historial.");
+            }
+        }
+
+        // Cargar elementos al abrir la página por primera vez
+        actualizarRecientes();
+    </script>
+</body>
+</html>
+
