@@ -78,10 +78,10 @@ app.post('/convertir', async (req, res) => {
         const outputFilename = `${safeTitle}.mp3`;
         const outputPath = path.join(__dirname, outputFilename);
 
-        // SOLUCIÓN DEFINITIVA: Pasamos las opciones de ffmpeg usando los comandos nativos de extracción de audio sin '--ffmpeg-location' directo
+        // SOLUCIÓN DEFINITIVA DE SINTAXIS: Usamos la opción '--ffmpeg-location' separada de su valor en dos índices distintos del array para evitar fallos de lectura en Linux
         await ytDlpWrap.execPromise([
             url,
-            '-x',
+            '--extract-audio',
             '--audio-format', 'mp3',
             '--audio-quality', '0',
             '--ffmpeg-location', ffmpegStatic,
@@ -116,6 +116,6 @@ app.post('/convertir', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor corriendo en el puerto ${PORT}`);
+    console.log('Servidor listo y escuchando puertos multimedia.');
 });
 
