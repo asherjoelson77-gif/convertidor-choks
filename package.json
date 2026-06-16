@@ -4,7 +4,6 @@
   "description": "Convertidor de videos de YouTube a MP3 con nombres originales",
   "main": "server.js",
   "scripts": {
-    "prestart": "npx yt-dlp-wrap --download ./yt-dlp",
     "start": "node server.js"
   },
   "keywords": [],

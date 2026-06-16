@@ -7,9 +7,25 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configurar la ruta del binario local de yt-dlp
 const ytDlpPath = path.join(__dirname, 'yt-dlp');
-const ytDlpWrap = new YTDlpWrap(fs.existsSync(ytDlpPath) ? ytDlpPath : undefined);
+let ytDlpWrap;
+
+// Función para descargar automáticamente yt-dlp si no existe en el servidor
+async function inicializarYtDlp() {
+    if (!fs.existsSync(ytDlpPath)) {
+        console.log('Descargando yt-dlp de forma interna...');
+        try {
+            await YTDlpWrap.downloadFromGithub(ytDlpPath);
+            console.log('yt-dlp descargado con éxito.');
+        } catch (err) {
+            console.error('Error descargando yt-dlp:', err);
+        }
+    }
+    ytDlpWrap = new YTDlpWrap(ytDlpPath);
+}
+
+// Inicializar el ejecutable antes de arrancar por completo
+inicializarYtDlp();
 
 let descargasRecientes = [];
 
@@ -31,6 +47,7 @@ app.post('/analizar', async (req, res) => {
     }
 
     try {
+        if (!ytDlpWrap) await inicializarYtDlp();
         const videoInfo = await ytDlpWrap.getVideoInfo(url);
         res.json({
             title: videoInfo.title,
@@ -49,12 +66,12 @@ app.post('/convertir', async (req, res) => {
     const { url } = req.body;
 
     try {
+        if (!ytDlpWrap) await inicializarYtDlp();
         const videoInfo = await ytDlpWrap.getVideoInfo(url);
         const safeTitle = videoInfo.title.replace(/[/\\?%*:|"<>]/g, '-');
         const outputFilename = `${safeTitle}.mp3`;
         const outputPath = path.join(__dirname, outputFilename);
 
-        // Ejecutar conversión usando el ffmpeg integrado
         await ytDlpWrap.execPromise([
             url,
             '-x',
