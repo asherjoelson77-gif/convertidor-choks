@@ -10,13 +10,14 @@ const PORT = process.env.PORT || 3000;
 const ytDlpPath = path.join(__dirname, 'yt-dlp');
 let ytDlpWrap;
 
-// Función para descargar automáticamente yt-dlp si no existe en el servidor
+// Función para descargar la versión oficial y más reciente de yt-dlp
 async function inicializarYtDlp() {
     if (!fs.existsSync(ytDlpPath)) {
-        console.log('Descargando yt-dlp de forma interna...');
+        console.log('Descargando versión oficial de yt-dlp...');
         try {
-            await YTDlpWrap.downloadFromGithub(ytDlpPath);
-            console.log('yt-dlp descargado con éxito.');
+            // Forzamos la descarga del repositorio oficial de yt-dlp/yt-dlp
+            await YTDlpWrap.downloadFromGithub(ytDlpPath, null, 'yt-dlp/yt-dlp');
+            console.log('yt-dlp oficial descargado con éxito.');
         } catch (err) {
             console.error('Error descargando yt-dlp:', err);
         }
