@@ -78,7 +78,7 @@ app.post('/convertir', async (req, res) => {
         const outputFilename = `${safeTitle}.mp3`;
         const outputPath = path.join(__dirname, outputFilename);
 
-        // CORRECCIÓN: Sintaxis correcta de argumentos para yt-dlp con ffmpeg integrado
+        // SOLUCIÓN DEFINITIVA: Pasamos las opciones de ffmpeg usando los comandos nativos de extracción de audio sin '--ffmpeg-location' directo
         await ytDlpWrap.execPromise([
             url,
             '-x',
