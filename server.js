@@ -1,42 +1,15 @@
 const express = require('express');
-const YTDlpWrap = require('yt-dlp-wrap').default;
 const ffmpegStatic = require('ffmpeg-static');
-const { execFile } = require('child_process');
+const { exec } = require('child_process'); // Usamos exec para comandos de terminal directos
 const path = require('path');
 const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const ytDlpPath = path.join(__dirname, 'yt-dlp');
-let ytDlpWrap;
-
-// Inyectar la ruta del binario de FFmpeg directamente en el PATH del entorno de Render
+// Inyectamos FFmpeg en el PATH para que el comando de conversión lo encuentre solo
 const ffmpegDir = path.dirname(ffmpegStatic);
 process.env.PATH = `${ffmpegDir}${path.delimiter}${process.env.PATH}`;
-
-// Función para descargar yt-dlp y darle permisos de ejecución
-async function inicializarYtDlp() {
-    if (!fs.existsSync(ytDlpPath)) {
-        console.log('Descargando versión oficial de yt-dlp desde GitHub...');
-        try {
-            await YTDlpWrap.downloadFromGithub(ytDlpPath, 'yt-dlp/yt-dlp');
-            console.log('yt-dlp oficial descargado con éxito.');
-            fs.chmodSync(ytDlpPath, '755');
-            console.log('Permisos de ejecución otorgados a yt-dlp.');
-        } catch (err) {
-            console.error('Error descargando yt-dlp:', err);
-        }
-    } else {
-        try {
-            fs.chmodSync(ytDlpPath, '755');
-        } catch (e) {}
-    }
-    ytDlpWrap = new YTDlpWrap(ytDlpPath);
-}
-
-// Inicializar antes de arrancar por completo
-inicializarYtDlp();
 
 let descargasRecientes = [];
 
@@ -51,58 +24,66 @@ app.get('/recientes', (req, res) => {
     res.json(descargasRecientes);
 });
 
-app.post('/analizar', async (req, res) => {
+// 1. OBTENER INFORMACIÓN DEL VIDEO USANDO NPX
+app.post('/analizar', (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'Por favor, proporciona una URL válida.' });
 
-    try {
-        if (!ytDlpWrap) await inicializarYtDlp();
-        const videoInfo = await ytDlpWrap.getVideoInfo(url);
-        res.json({
-            title: videoInfo.title,
-            duration: videoInfo.duration_string || 'Desconocida',
-            uploader: videoInfo.uploader || 'Canal Desconocido',
-            thumbnail: videoInfo.thumbnail || 'https://via.placeholder.com/480x360?text=Sin+Miniatura',
-            url: url
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'No se pudo obtener información del video.' });
-    }
+    // Ejecutamos yt-dlp directamente usando npx de forma limpia y segura
+    const comando = `npx --yes @shasoft/yt-dlp-package "${url}" -J`;
+
+    exec(comando, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error al analizar:', error);
+            return res.status(500).json({ error: 'No se pudo obtener información del video.' });
+        }
+
+        try {
+            const videoInfo = JSON.parse(stdout);
+            res.json({
+                title: videoInfo.title,
+                duration: videoInfo.duration_string || 'Desconocida',
+                uploader: videoInfo.uploader || 'Canal Desconocido',
+                thumbnail: videoInfo.thumbnail || 'https://via.placeholder.com/480x360?text=Sin+Miniatura',
+                url: url
+            });
+        } catch (parseError) {
+            console.error('Error al procesar JSON:', parseError);
+            res.status(500).json({ error: 'Error al procesar los datos del video.' });
+        }
+    });
 });
 
-app.post('/convertir', async (req, res) => {
+// 2. CONVERTIR VIDEO A MP3 USANDO NPX
+app.post('/convertir', (req, res) => {
     const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'URL requerida.' });
 
-    try {
-        if (!ytDlpWrap) await inicializarYtDlp();
-        const videoInfo = await ytDlpWrap.getVideoInfo(url);
-        const safeTitle = videoInfo.title.replace(/[/\\?%*:|"<>]/g, '-');
+    // Obtenemos primero el título de forma rápida para nombrar el archivo
+    const comandoInfo = `npx --yes @shasoft/yt-dlp-package "${url}" --get-title`;
+
+    exec(comandoInfo, (errorTitle, stdoutTitle) => {
+        const titulo = errorTitle ? 'audio_descargado' : stdoutTitle.trim();
+        const safeTitle = titulo.replace(/[/\\?%*:|"<>]/g, '-');
         const outputFilename = `${safeTitle}.mp3`;
         const outputPath = path.join(__dirname, outputFilename);
 
-        // Al estar FFmpeg inyectado en el PATH del sistema, ya NO usamos la flag '--ffmpeg-location'
-        const args = [
-            url,
-            '-x',
-            '--audio-format', 'mp3',
-            '--audio-quality', '0',
-            '-o', outputPath
-        ];
+        // Comando de conversión directo con npx (sin flags conflictivas de ffmpeg locales)
+        const comandoConvertir = `npx --yes @shasoft/yt-dlp-package "${url}" -x --audio-format mp3 --audio-quality 0 -o "${outputPath}"`;
 
-        execFile(ytDlpPath, args, (error, stdout, stderr) => {
+        console.log('Iniciando conversión con npx...');
+        exec(comandoConvertir, (error, stdout, stderr) => {
             if (error) {
-                console.error('Error en execFile:', error);
-                console.error('Stderr:', stderr);
+                console.error('Error en conversión:', error);
                 return res.status(500).json({ error: 'Error durante la conversión de audio.' });
             }
 
             if (fs.existsSync(outputPath)) {
                 const nuevaDescarga = {
                     id: Date.now(),
-                    title: videoInfo.title,
-                    uploader: videoInfo.uploader || 'Canal Desconocido',
-                    thumbnail: videoInfo.thumbnail || 'https://via.placeholder.com/120?text=MP3'
+                    title: titulo,
+                    uploader: 'YouTube Video',
+                    thumbnail: 'https://via.placeholder.com/120?text=MP3'
                 };
                 
                 descargasRecientes.unshift(nuevaDescarga);
@@ -118,14 +99,10 @@ app.post('/convertir', async (req, res) => {
                 res.status(500).json({ error: 'No se pudo encontrar el archivo MP3 generado.' });
             }
         });
-
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Error interno en el proceso.' });
-    }
+    });
 });
 
 app.listen(PORT, () => {
-    console.log('Servidor listo y escuchando en Render.');
+    console.log('Servidor levantado con ejecución automatizada NPX.');
 });
 
